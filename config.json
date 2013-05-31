@@ -1,0 +1,19 @@
+{
+   "name": "Son of PlanPlanPalatable",
+   "className": "PlanPlanPalatable",
+   "server": "https://rally1.rallydev.com",
+   "sdk": "2.0p4",
+   "javascript": [
+      "StoryTree.js",
+      "StoryTreeItem.js",
+      "IterationTreeItem.js",
+      "IterationsAndReleases.js",
+      "App.js"
+   ],
+   "css": [
+      "app.css"
+   ],
+   "parents": [
+      "RallyCommunity/PlanPlanPalatable"
+   ]
+}

@@ -1,0 +1,44 @@
+body {
+    overflow-y: auto !important;
+}
+
+.app {
+    margin: 10px 30px;
+}
+
+.app > .leftSide {
+    float: left;
+    width: 45%;
+}
+
+.app > .rightSide {
+    float: right;
+    width: 45%;
+}
+
+h1 {
+    font-size: 14px;
+    margin: 5px;
+}
+
+.grayLabel {
+    color: #888;
+    margin: 5px 15px;
+}
+
+
+.percentDoneContainer {
+    height: 15px;
+    line-height: 15px;
+}
+
+.planEstimate {
+    width: 20px;
+    height: 20px;
+    border: 1px dotted #5C9ACB;
+    text-align: center;
+    margin-right: 4px;
+    position: absolute;
+    top: 5px;
+    right: 3px;
+}

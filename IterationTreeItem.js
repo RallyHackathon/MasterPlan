@@ -21,7 +21,7 @@ Ext.define('PlanIterationsAndReleases.IterationTreeItem', {
                     var resources = me.getRecord().get('Resources');
                     var planEstimateRollup = me.getRecord().get('PlanEstimateRollup');
 
-                    if(resources == 0){
+                    if(!resources){
                         return '';
                     }
                     
@@ -37,9 +37,9 @@ Ext.define('PlanIterationsAndReleases.IterationTreeItem', {
         );
     },
     
-    getExpanderTpl: function(){
-        return Ext.create('Ext.XTemplate', '');
-    },
+//    getExpanderTpl: function(){
+//        return Ext.create('Ext.XTemplate', '');
+//    },
     
     getCapacityTemplate: function(){
         return Ext.create('Ext.XTemplate', 
@@ -55,7 +55,7 @@ Ext.define('PlanIterationsAndReleases.IterationTreeItem', {
                     if(percent > 1){
                         return '#EDB5B1';
                     }
-                    if(percent > .8){
+                    if(percent > 0.8){
                         return '#FBEDCA';
                     }
                     return '#5C9ACB';

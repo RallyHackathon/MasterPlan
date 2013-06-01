@@ -2,8 +2,8 @@ Ext.define('PlanIterationsAndReleases.StoryTree', {
     extend: 'Ext.Container',
     xtype: 'storytree',
     resize: true,
-    
-    initComponent: function(){
+
+    initComponent: function () {
         this.callParent(arguments);
         this.add({
             xtype: 'component',
@@ -17,22 +17,22 @@ Ext.define('PlanIterationsAndReleases.StoryTree', {
         });
         this.buildTree();
     },
-    
-    buildTree: function(){
+
+    buildTree: function () {
 
         Rally.data.util.PortfolioItemHelper.loadTypeOrDefault({
-        	typeRef: 'https://rally1.rallydev.com/slm/webservice/v2.0/typedefinition/4628828148',
-            success: function(typeRecord){
+            typeRef: 'https://rally1.rallydev.com/slm/webservice/v2.0/typedefinition/4628828148',
+            success: function (typeRecord) {
 
                 var tree = Ext.widget('rallyportfoliotree', {
                     topLevelModel: typeRecord.get('TypePath'),
-                    treeItemConfigForRecordFn: function(record){
+                    treeItemConfigForRecordFn: function (record) {
                         var canDrag = record.get('_type') === 'hierarchicalrequirement' && record.get('Children').length === 0;
-                        
+
                         var config = {
                             canDrag: canDrag
                         };
-                        if(record.get('_type') === 'hierarchicalrequirement'){
+                        if (record.get('_type') === 'hierarchicalrequirement') {
                             config.xtype = 'rallystorytreeitem';
                         } else {
                             config.xtype = 'rallyportfolioitemtreeitem';
@@ -47,6 +47,6 @@ Ext.define('PlanIterationsAndReleases.StoryTree', {
             scope: this
         });
 
-        
+
     }
 });

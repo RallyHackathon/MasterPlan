@@ -67,7 +67,7 @@ Ext.define('PlanIterationsAndReleases.IterationsAndReleases', {
         var release = this.releaseCombobox.getRecord();
         var startDate = Ext.Date.format(release.get('ReleaseStartDate'), 'F jS Y');
         var endDate = Ext.Date.format(release.get('ReleaseDate'), 'F jS Y');
-        var tpl = Ext.create('Ext.XTemplate', 'Showing iterations that begin or end within this release ({StartDate} - {EndDate})')
+        var tpl = Ext.create('Ext.XTemplate', 'Showing iterations that begin or end within this release ({StartDate} - {EndDate})');
         this.down('#releaseLabel').update(tpl.apply({
             Name: release.get('Name'),
             StartDate: startDate,
@@ -177,6 +177,10 @@ Ext.define('PlanIterationsAndReleases.IterationsAndReleases', {
                     },
                     filters: filter
                 };
+            },
+            
+            _getDefaultTopLevelFetchFields: function() {
+                return ['FormattedID', 'Name', 'ObjectID', 'DirectChildrenCount', 'ScheduleState', 'Workspace', 'Iteration', 'TaskStatus', 'WorkProduct', 'Project'];
             },
             scope: this
         

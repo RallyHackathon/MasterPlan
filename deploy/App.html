@@ -3,15 +3,20 @@
 <head>
     <title>Son of PlanPlanPalatable</title>
 
-    <script type="text/javascript" src="/apps/2.0p5/sdk.js"></script>
+    <script type="text/javascript" src="/apps/2.0rc1/sdk.js"></script>
 
     <script type="text/javascript">
         Rally.onReady(function () {
                 Ext.define("PlanIterationsAndReleases.StoryTree",{extend:"Ext.Container",xtype:"storytree",resize:!0,initComponent:function(){this.callParent(arguments),this.add({xtype:"component",autoEl:"h1",html:"Unscheduled Story Hierarchy"}),this.add({xtype:"component",cls:"grayLabel",html:"Drill down to see unscheduled leaf user stories. Drag and drop into an iteration on the right."}),this.buildTree()},buildTree:function(){Rally.data.util.PortfolioItemHelper.loadTypeOrDefault({typeRef:"https://rally1.rallydev.com/slm/webservice/v2.0/typedefinition/4628828148",success:function(typeRecord){var tree=Ext.widget("rallyportfoliotree",{topLevelModel:typeRecord.get("TypePath"),treeItemConfigForRecordFn:function(record){var canDrag="hierarchicalrequirement"===record.get("_type")&&0===record.get("Children").length,config={canDrag:canDrag};return config.xtype="hierarchicalrequirement"===record.get("_type")?"rallystorytreeitem":"rallyportfolioitemtreeitem",config}});this.add(tree)},scope:this})}});
                 Ext.define("PlanIterationsAndReleases.StoryTreeItem",{extend:"Rally.ui.tree.TreeItem",alias:"widget.rallystorytreeitem",getPillTpl:function(){var me=this;return Ext.create("Ext.XTemplate",'<div class="pill">','<tpl if="this.canDrag()"><div class="icon drag"></div></tpl>',"{[this.getActionsGear()]}",'<div class="textContent ellipses">{[this.getFormattedId()]} - {Name}</div>','<div class="rightSide">',"{[this.getPlanEstimate(values)]}","</div>","</div>",{canDrag:function(){return me.getCanDrag()},getActionsGear:function(){return'<div class="row-action icon"></div>'},getFormattedId:function(){return me.getRecord().getField("FormattedID")?me.getRecord().render("FormattedID"):""},getPlanEstimate:function(){return me.getRecord().get("PlanEstimate")>0?'<div class="planEstimate">'+me.getRecord().get("PlanEstimate")+"</div>":""}})}});
                 Ext.define("PlanIterationsAndReleases.IterationTreeItem",{extend:"Rally.ui.tree.TreeItem",alias:"widget.rallyiterationtreeitem",getPillTpl:function(){var me=this;return Ext.create("Ext.XTemplate",'<div class="pill">',"{[this.getActionsGear()]}",'<div class="textContent ellipses">{Name} ({[this.getStartDate(values)]} - {[this.getEndDate(values)]})</div>','<div class="rightSide">',"{[this.getCapacity(values)]}","</div>","</div>",{getActionsGear:function(){return'<div class="row-action icon"></div>'},getCapacity:function(recordData){var resources=me.getRecord().get("Resources"),planEstimateRollup=me.getRecord().get("PlanEstimateRollup");return resources?me.getCapacityTemplate().apply(recordData):""},getStartDate:function(recordData){return Ext.Date.format(recordData.StartDate,"F jS Y")},getEndDate:function(recordData){return Ext.Date.format(recordData.EndDate,"F jS Y")}})},getCapacityTemplate:function(){return Ext.create("Ext.XTemplate",'<div class="percentDoneContainer">','<div class="percentDoneBar" style="background-color: {[this.calculateColor(values)]}; width: {[this.calculateWidth(values)]}; "></div>','<div class="percentDoneLabel">',"{[this.displayValue(values)]}","</div>","</div>",{calculateColor:function(recordData){var percent=recordData.PlanEstimateRollup/recordData.Resources;return percent>1?"#EDB5B1":percent>.8?"#FBEDCA":"#5C9ACB"},displayValue:function(recordData){return recordData.PlanEstimateRollup+"/"+recordData.Resources},calculatePercent:function(recordData){return Math.round(100*(recordData.PlanEstimateRollup/recordData.Resources))+"%"},calculateWidth:function(recordData){var width=Math.round(100*(recordData.PlanEstimateRollup/recordData.Resources));return width=Math.min(width,100),width+"%"}})},setRecord:function(record){this.updatePlanEstimateRollup(record),this.callParent(arguments)},updatePlanEstimateRollup:function(iterationRecord){if(this.rendered){var planEstimateRollup=0,storyTreeItems=this.query("rallytreeitem");Ext.each(storyTreeItems,function(storyTreeItem){planEstimateRollup+=storyTreeItem.getRecord().get("PlanEstimate")}),iterationRecord.set("PlanEstimateRollup",planEstimateRollup)}}});
-                Ext.define("PlanIterationsAndReleases.IterationsAndReleases",{extend:"Ext.Container",initComponent:function(){this.callParent(arguments),this.add({xtype:"component",autoEl:"h1",html:"Releases and Iterations"}),this.enhanceIterationModel()},enhanceIterationModel:function(){Rally.data.ModelFactory.getModel({type:"Iteration",success:function(model){this.enhancedIterationModel=Ext.define("EnhancedIterationModel",{extend:model,fields:[{name:"PlanEstimateRollup",type:"int",defaultValue:0}]}),this.buildReleaseComboBox()},scope:this})},buildReleaseComboBox:function(){this.releaseCombobox=Ext.widget("rallyreleasecombobox",{storeConfig:{filters:[{property:"State",value:"Accepted",operator:"!="}],sorters:[{property:"ReleaseStartDate",direction:"asc"}]},listeners:{ready:this.releaseSelected,select:this.releaseSelected,scope:this}}),this.add(this.releaseCombobox),this.add({xtype:"component",itemId:"releaseLabel",cls:"grayLabel"})},releaseSelected:function(){this.updateLabel(),this.buildIterationTree()},updateLabel:function(){var release=this.releaseCombobox.getRecord(),startDate=Ext.Date.format(release.get("ReleaseStartDate"),"F jS Y"),endDate=Ext.Date.format(release.get("ReleaseDate"),"F jS Y"),tpl=Ext.create("Ext.XTemplate","Showing iterations that begin or end within this release ({StartDate} - {EndDate})");this.down("#releaseLabel").update(tpl.apply({Name:release.get("Name"),StartDate:startDate,EndDate:endDate}))},buildIterationTree:function(){this.iterationTree&&this.iterationTree.destroy();var selectedRelease=this.releaseCombobox.getRecord(),startDateFilter=Ext.create("Rally.data.QueryFilter",{property:"StartDate",value:selectedRelease.raw.ReleaseStartDate,operator:">="}).and({property:"StartDate",value:selectedRelease.raw.ReleaseDate,operator:"<="}),endDateFilter=Ext.create("Rally.data.QueryFilter",{property:"EndDate",value:selectedRelease.raw.ReleaseDate,operator:"<="}).and({property:"EndDate",value:selectedRelease.raw.ReleaseStartDate,operator:">="}),filter=startDateFilter.or(endDateFilter);this.iterationTree=Ext.widget("rallytree",{topLevelModel:this.enhancedIterationModel,enableDragAndDrop:!0,topLevelStoreConfig:{filters:filter,sorters:[{property:"StartDate",direction:"asc"}]},childModelTypeForRecordFn:function(record){return"UserStory"},parentAttributeForChildRecordFn:function(record){return"Iteration"},canExpandFn:function(record){return"iteration"===record.get("_type")?!0:void 0},dragThisGroupOnMeFn:function(record){return"iteration"===record.get("_type")?"hierarchicalrequirement":void 0},treeItemConfigForRecordFn:function(record){return"iteration"===record.get("_type")?{xtype:"rallyiterationtreeitem",canDrag:!1,canDropOnMe:!0,expanded:!0}:"hierarchicalrequirement"===record.get("_type")?{xtype:"rallystorytreeitem",canDrag:!0}:void 0},childItemsStoreConfigForParentRecordFn:function(record){var releaseFilter=Ext.create("Rally.data.QueryFilter",{property:"Release",value:selectedRelease.get("_ref")}),iterationFilter=Ext.create("Rally.data.QueryFilter",{property:"Iteration",value:record.get("_ref")}),filter=releaseFilter.and(iterationFilter);return{listeners:{load:function(store,records){this.updateRollupOnIterations(records)},scope:this},filters:filter}},_getDefaultTopLevelFetchFields:function(){return["FormattedID","Name","ObjectID","DirectChildrenCount","ScheduleState","Workspace","Iteration","TaskStatus","WorkProduct","Project"]},scope:this}),this.add(this.iterationTree)},updateRollupOnIterations:function(records){if(0!==records.length){var iterationTreeItem;Ext.each(this.query("rallyiterationtreeitem"),function(treeItem){treeItem.getRecord().get("Name")===records[0].get("Iteration")._refObjectName&&(iterationTreeItem=treeItem)});var planEstimateRollup=0;Ext.each(records,function(record){planEstimateRollup+=record.get("PlanEstimate")}),iterationTreeItem.getRecord().set("PlanEstimateRollup",planEstimateRollup),iterationTreeItem.draw()}}});
-                Ext.define("PlanPlanPalatable",{extend:"Rally.app.App",componentCls:"app",layout:"hbox",items:[{itemId:"accContainer",layout:"accordion",defaults:{bodyPadding:10},height:"100%",items:[{title:"Story Hierarchy",itemId:"storyHierarchyPanel",resizable:!0,autoScroll:!0,height:"100%"},{title:"Orphaned Stories",itemId:"orphanStories",resizable:!0,autoScroll:!0},{title:"Defects",itemId:"defects",resizable:!0,autoScroll:!0}],flex:1},{xtype:"container",cls:"rightSide",itemId:"rightSide",flex:1,height:"100%",autoScroll:!0}],launch:function(){this.buildStoryTree(),this.buildOrphanedStoryTree(),this.buildDefectTree(),this.buildIterationsAndReleases()},buildStoryTree:function(){var storyTree=Ext.create("PlanIterationsAndReleases.StoryTree");this.down("#storyHierarchyPanel").add(storyTree)},buildOrphanedStoryTree:function(){var parentFilter=Ext.create("Rally.data.QueryFilter",{property:"Feature",value:"null",operator:"="}),stateFilter=Ext.create("Rally.data.QueryFilter",{property:"ScheduleState",value:"Accepted",operator:"!="}),iterationFilter=Ext.create("Rally.data.QueryFilter",{property:"Iteration",value:"null",operator:"="}),filter=parentFilter.and(stateFilter).and(iterationFilter),orphanStoryTree=Ext.create("Rally.ui.tree.Tree",{topLevelStoreConfig:{model:"User Story",fetch:["FormattedID","Name","ObjectID","DirectChildrenCount","ScheduleState","Workspace","Iteration","TaskStatus","WorkProduct","Project","Parent"],filters:filter,canDrag:!0,sorters:[{property:"Rank",direction:"asc"}],listeners:{load:function(store,records,successful,options){store.totalCount>200&&Rally.ui.notify.Notifier.showError({message:"There are more than 200 orphaned stories."})}}}});this.down("#orphanStories").add(orphanStoryTree)},buildDefectTree:function(){var defectTree=Ext.create("Rally.ui.tree.Tree",{topLevelStoreConfig:{model:"Defect",filters:[{property:"ScheduleState",value:"Accepted",operator:"!="},{property:"Iteration",value:"null",operator:"="}],sorters:[{property:"Rank",direction:"asc"}],listeners:{load:function(store,records,successful,options){store.totalCount>200&&Rally.ui.notify.Notifier.showError({message:"There are more than 200 defects."})}}}});this.down("#defects").add(defectTree)},buildIterationsAndReleases:function(){var iterationsAndReleases=Ext.create("PlanIterationsAndReleases.IterationsAndReleases");this.down("#rightSide").add(iterationsAndReleases)}});
+                Ext.define("PlanIterationsAndReleases.IterationsAndReleases",{extend:"Ext.Container",initComponent:function(){this.callParent(arguments),this.add({xtype:"component",autoEl:"h1",html:"Releases and Iterations"}),this.enhanceIterationModel()},enhanceIterationModel:function(){Rally.data.ModelFactory.getModel({type:"Iteration",success:function(model){this.enhancedIterationModel=Ext.define("EnhancedIterationModel",{extend:model,fields:[{name:"PlanEstimateRollup",type:"int",defaultValue:0}]}),this.buildReleaseComboBox()},scope:this})},buildReleaseComboBox:function(){this.releaseCombobox=Ext.widget("rallyreleasecombobox",{storeConfig:{filters:[{property:"State",value:"Accepted",operator:"!="}],sorters:[{property:"ReleaseStartDate",direction:"asc"}]},listeners:{ready:this.releaseSelected,select:this.releaseSelected,scope:this}}),this.add(this.releaseCombobox),this.add({xtype:"component",itemId:"releaseLabel",cls:"grayLabel"})},releaseSelected:function(){this.updateLabel(),this.buildIterationTree()},updateLabel:function(){var release=this.releaseCombobox.getRecord(),startDate=Ext.Date.format(release.get("ReleaseStartDate"),"F jS Y"),endDate=Ext.Date.format(release.get("ReleaseDate"),"F jS Y"),tpl=Ext.create("Ext.XTemplate","Showing iterations that begin or end within this release ({StartDate} - {EndDate})");this.down("#releaseLabel").update(tpl.apply({Name:release.get("Name"),StartDate:startDate,EndDate:endDate}))},buildIterationTree:function(){this.iterationTree&&this.iterationTree.destroy();var selectedRelease=this.releaseCombobox.getRecord(),startDateFilter=Ext.create("Rally.data.QueryFilter",{property:"StartDate",value:selectedRelease.raw.ReleaseStartDate,operator:">="}).and({property:"StartDate",value:selectedRelease.raw.ReleaseDate,operator:"<="}),endDateFilter=Ext.create("Rally.data.QueryFilter",{property:"EndDate",value:selectedRelease.raw.ReleaseDate,operator:"<="}).and({property:"EndDate",value:selectedRelease.raw.ReleaseStartDate,operator:">="}),filter=startDateFilter.or(endDateFilter);this.iterationTree=Ext.widget("rallytree",{topLevelModel:this.enhancedIterationModel,enableDragAndDrop:!0,topLevelStoreConfig:{filters:filter,sorters:[{property:"StartDate",direction:"asc"}]},childModelTypeForRecordFn:function(record){return"Artifact"},parentAttributeForChildRecordFn:function(record){return"Iteration"},canExpandFn:function(record){return"iteration"===record.get("_type")?!0:void 0},dragThisGroupOnMeFn:function(record){return"iteration"===record.get("_type")?"hierarchicalrequirement":void 0},treeItemConfigForRecordFn:function(record){return"iteration"===record.get("_type")?{xtype:"rallyiterationtreeitem",canDrag:!1,canDropOnMe:!0,expanded:!0}:"hierarchicalrequirement"===record.get("_type")?{xtype:"rallystorytreeitem",canDrag:!0}:void 0},childItemsStoreConfigForParentRecordFn:function(record){var releaseFilter=Ext.create("Rally.data.QueryFilter",{property:"Release",value:selectedRelease.get("_ref")}),iterationFilter=Ext.create("Rally.data.QueryFilter",{property:"Iteration",value:record.get("_ref")}),filter=releaseFilter.and(iterationFilter);return{listeners:{load:function(store,records){this.updateRollupOnIterations(records)},scope:this},filters:filter}},_getDefaultTopLevelFetchFields:function(){return["FormattedID","Name","ObjectID","DirectChildrenCount","ScheduleState","Workspace","Iteration","TaskStatus","WorkProduct","Project"]},scope:this}),this.add(this.iterationTree)},updateRollupOnIterations:function(records){if(0!==records.length){var iterationTreeItem;Ext.each(this.query("rallyiterationtreeitem"),function(treeItem){treeItem.getRecord().get("Name")===records[0].get("Iteration")._refObjectName&&(iterationTreeItem=treeItem)});var planEstimateRollup=0;Ext.each(records,function(record){planEstimateRollup+=record.get("PlanEstimate")}),iterationTreeItem.getRecord().set("PlanEstimateRollup",planEstimateRollup),iterationTreeItem.draw()}}});
+                (function(){var Ext=window.Ext4||window.Ext;Ext.define("IterationPlanningBoardColumnProgressBar",{extend:"Ext.Component",alias:"widget.rallyiterationplanningboardcolumnprogressbar",renderTpl:Ext.create("Rally.ui.renderer.template.progressbar.TimeboxProgressBarTemplate",{height:"14px",width:"80%"}),update:function(){var html=this.renderTpl.apply(this._getRenderData());this.callParent([html])},_getColumn:function(){return this.column},_getRenderData:function(){var totalPointCount=this._getTotalPointCount(),plannedVelocity=this._getPlannedVelocity();return{percentDone:totalPointCount/plannedVelocity,amountComplete:totalPointCount,total:plannedVelocity}},_getTotalPointCount:function(){return _.reduce(this._getColumn().getCards(!0),function(memo,card){var planEstimate=card.getRecord().get("PlanEstimate");return Ext.isNumber(planEstimate)?memo+planEstimate:memo},0)},_getPlannedVelocity:function(){return _.reduce(this._getColumn().getTimeboxRecords(),function(memo,record){var plannedVelocity=record.get("PlannedVelocity");return Ext.isNumber(plannedVelocity)?memo+plannedVelocity:memo},0)}})})();
+                Ext.define("PlanningColumnDropController",{extend:"Rally.ui.cardboard.plugin.ColumnDropController",alias:"plugin.planningcolumndropcontroller",_addDragZone:function(){var column=this.cmp;Ext.create("Ext.dd.DragZone",this.getDndContainer(),{ddGroup:column.ddGroup,onBeforeDrag:function(data,e){var avatar=Ext.fly(this.dragElId);avatar.setWidth(data.targetWidth),column.fireEvent("cardpickedup",data.card)},proxy:Ext.create("Ext.dd.StatusProxy",{animRepair:!0,shadow:!1,dropAllowed:"cardboard",dropNotAllowed:"cardboard"}),getDragData:function(e){var dragEl=e.getTarget(".drag-handle",10);if(dragEl){var sourceEl=e.getTarget(".rui-card",10),avatar=sourceEl.cloneNode(!0);return avatar.id=Ext.id(),{targetWidth:Ext.fly(sourceEl).getWidth(),ddel:avatar,sourceEl:sourceEl,repairXY:Ext.fly(sourceEl).getXY(),card:Ext.ComponentManager.get(sourceEl.id),column:column}}},getRepairXY:function(){return this.dragData.repairXY}})}});
+                (function(){var Ext=window.Ext4||window.Ext;Ext.define("IterationPlanningBoardColumn",{extend:"Rally.ui.cardboard.Column",alias:"widget.iterationplanningboardappplanningcolumn",config:{startDateField:"StartDate",endDateField:"EndDate",timeboxRecords:[],columnStatusConfig:{xtype:"rallyiterationplanningboardcolumnprogressbar"}},cls:"column",currentTimeboxCls:"current-timebox",requires:["Ext.XTemplate","IterationPlanningBoardColumnProgressBar"],constructor:function(config){this.mergeConfig(config),this.config=Ext.merge({columnHeaderConfig:{record:this._getTimeboxRecord(),fieldToDisplay:"Name",editable:!1}},this.config),this.config.value=Rally.util.Ref.getRelativeUri(this._getTimeboxRecord()),this.config.moreItemsConfig={token:Rally.nav.Manager.getDetailHash(this._getTimeboxRecord(),{scope:"",subPage:"scheduled"})},this.callParent([this.config])},initComponent:function(){this.callParent(arguments),this.on({beforecarddroppedsave:this._onBeforeCardDrop,addcard:this._updateColumnStatus,load:this._updateColumnStatus,removecard:this._updateColumnStatus,cardupdated:this._updateColumnStatus,afterrender:{fn:this._addPlanningClasses,single:!0},scope:this})},_updateColumnStatus:function(){this.columnStatus.update()},getStoreFilter:function(model){var modelName=this._getTimeboxRecord().self.displayName;return[{property:modelName+".Name",value:this._getTimeboxRecord().get("Name")},{property:modelName+"."+this.startDateField,value:Rally.util.DateTime.toIsoString(this._getTimeboxRecord().get(this.startDateField))},{property:modelName+"."+this.endDateField,value:Rally.util.DateTime.toIsoString(this._getTimeboxRecord().get(this.endDateField))}]},getColumnStatus:function(){return this.columnStatus},getStatusCell:function(){return Ext.get(this.statusCell)},isMatchingRecord:function(record){return Ext.Array.some(this.timeboxRecords,function(timeboxRecord){return Rally.util.Ref.getOidFromRef(record.get("Iteration"))===timeboxRecord.get("ObjectID")})},afterRender:function(){this.callParent(arguments),this.drawStatus()},drawHeader:function(){this.callParent(arguments),this._addTimeboxDates()},drawStatus:function(){if(this.columnStatusConfig&&!this.getColumnStatus()){var config={renderTo:this.getStatusCell(),column:this};config=Ext.merge({},config,this.columnStatusConfig),this.columnStatus=Ext.widget(config)}},_addTimeboxDates:function(){this.getColumnHeader().add({xtype:"component",html:this.getTimeboxDatesTpl().apply(this.getTimeboxDatesTplData())})},getTimeboxDatesTpl:function(){return this.timeboxDatesTpl=this.timeboxDatesTpl||Ext.create("Ext.XTemplate",'<div class="timeboxDates">{formattedStartDate} - {formattedEndDate}</div>'),this.timeboxDatesTpl},getTimeboxDatesTplData:function(){return{formattedStartDate:this._getFormattedDate(this.startDateField),formattedEndDate:this._getFormattedDate(this.endDateField)}},getProgressBar:function(){return this.getColumnStatus()},_getFormattedDate:function(fieldName){return Rally.util.DateTime.formatWithNoYearWithDefault(this._getTimeboxRecord().get(fieldName))},_getTimeboxRecord:function(){return this.timeboxRecords[0]},_onBeforeCardDrop:function(column,card){var cardProjectRef=Rally.util.Ref.getRelativeUri(card.getRecord().get("Project"));cardProjectRef!==Rally.util.Ref.getRelativeUri(column.context.getProject())&&(Ext.Array.some(this.timeboxRecords,function(timeboxRecord){return cardProjectRef===Rally.util.Ref.getRelativeUri(timeboxRecord.get("Project"))})||card.getRecord().set("Project",column.context.getProject()._ref))},_isCurrentTimebox:function(){var now=new Date;return now>=this._getTimeboxRecord().get("StartDate")&&this._getTimeboxRecord().get("EndDate")>=now},_addPlanningClasses:function(){var cls="planning-column";this._isCurrentTimebox()&&(cls+=" "+this.currentTimeboxCls),this.getContentCell().addCls(cls),this.getStatusCell().addCls(cls),this.getColumnHeaderCell().addCls(cls)}})})();
+                (function(){var Ext=window.Ext4||window.Ext;Ext.define("Rally.apps.iterationplanningboard.TimeboxScrollable",{alias:"plugin.rallytimeboxscrollablecardboard",extend:"Rally.ui.cardboard.plugin.Scrollable",requires:["Rally.util.Array"],_isBackwardsButtonHidden:function(){return this.cmp.scrollableColumnRecords[0]===this.getFirstVisibleScrollableColumn().timeboxRecords},_isForwardsButtonHidden:function(){return Rally.util.Array.last(this.cmp.scrollableColumnRecords)===this.getLastVisibleScrollableColumn().timeboxRecords},_scroll:function(forwards){var insertNextToColumn=this._getInsertNextToColumn(forwards),newlyVisibleRecords=this.cmp.scrollableColumnRecords[Ext.Array.indexOf(this.cmp.scrollableColumnRecords,insertNextToColumn.timeboxRecords)+(forwards?1:-1)],indexOfNewColumn=Ext.Array.indexOf(this.cmp.getColumns(),insertNextToColumn);this.cmp.destroyColumn(this._getColumnToRemove(forwards));var column=this.cmp.addColumn({timeboxRecords:newlyVisibleRecords},indexOfNewColumn);column.on("ready",this._onNewlyAddedColumnReady,this,{single:!0});var columnEls=this.cmp.createColumnElements(forwards?"after":"before",insertNextToColumn);this.cmp.renderColumn(column,columnEls),this.cmp.fireEvent("scroll",this.cmp),this._afterScroll(forwards)},_onNewlyAddedColumnReady:function(){this.cmp.applyLocalFilters()},_sizeButtonToColumnHeader:function(button,column){var columnHeaderHeight=column.getColumnHeaderCell().getHeight(Ext.isGecko||Ext.isIE);button.getEl().setHeight(columnHeaderHeight)}})})();
+                (function(){var Ext=window.Ext4||window.Ext;Ext.define("IterationCardBoard",{extend:"Rally.ui.cardboard.CardBoard",alias:"widget.iterationcardboard",attribute:"Iteration",plugins:[{ptype:"rallytimeboxscrollablecardboard",backwardsButtonConfig:{elTooltip:"Previous Iteration"},columnRecordsProperty:"timeboxRecords",forwardsButtonConfig:{elTooltip:"Next Iteration"},getFirstVisibleScrollableColumn:function(){return this.getScrollableColumns()[0]},getLastVisibleScrollableColumn:function(){return Rally.util.Array.last(this.getScrollableColumns())},getScrollableColumns:function(){return Ext.Array.slice(this.cmp.getColumns(),1,this.cmp.getColumns().length)}}],initComponent:function(){this.callParent(arguments),this.on({load:this._normalizeColumnStatusFieldStyles,scroll:this._normalizeColumnStatusFieldStyles,scope:this}),this._initBoard()},showColumn:function(column){this.callParent(arguments),column.getStatusCell().removeCls(this.self.COLUMN_HIDDEN_CLS)},hideColumn:function(column){this.callParent(arguments),column.getStatusCell().addCls(this.self.COLUMN_HIDDEN_CLS)},destroyColumn:function(column){this.callParent(arguments),Ext.removeNode(column.getStatusCell().dom)},createColumnElements:function(afterOrBefore,column){var insertFnName="after"===afterOrBefore?"insertAfter":"insertBefore",els=this.callParent(arguments),statusCell=Ext.DomHelper.createDom(this._getColumnDomHelperConfig({tag:"th",cls:"card-column-status"}));return Ext.fly(statusCell)[insertFnName](column.getStatusCell()),els.statusCell=statusCell,els},_generateHeaderHtml:function(){return this.callParent(arguments)+this._generateTableRowHtml({tag:"th",cls:"card-column-status"})},_renderColumns:function(){if(this.addCls("loading"),this.columnDefinitions.length>0){this._calculateMinWidth();var html=['<table class="column-container">','<thead class="column-headers">',this._generateHeaderHtml(),"</thead>",'<tbody class="columns">',this._generateContentHtml(),"</tbody>","</table>"].join("");this.getEl().update(html),this.showMask(this.maskMsg||"Loading...");var contentCellQuery=this.getEl().query(".columns td"),statusCellQuery=this.getEl().query(".column-headers th.card-column-status"),headerCellQuery=this.getEl().query(".column-headers th.card-column"),els;_.forEach(this.columnDefinitions,function(colDef,idx){els={headerCell:headerCellQuery[idx],statusCell:statusCellQuery[idx],contentCell:contentCellQuery[idx]},this.renderColumn(colDef,els)},this),this.fireEvent("aftercolumnrender",this)}},_normalizeColumnStatusFieldStyles:function(){var atLeastOneColumnHasProgressBar=_.some(this.scrollableColumnRecords,function(iteration){iteration=iteration[0];var plannedVelocity=iteration.get("PlannedVelocity");return Ext.isNumber(plannedVelocity)&&plannedVelocity>0});atLeastOneColumnHasProgressBar&&this.getEl().select(".card-column-status > div").each(function(el){el.down(".progress-bar")||el.addCls("empty-status")})},_getInitiallyVisibleTimeboxes:function(){if(this.timeboxes.length<=this.numColumns)return this.timeboxes;var previousTimeboxes=[],futureAndCurrentTimeboxes=[];Ext.Array.each(this.timeboxes,function(timeboxRecords){timeboxRecords[0].get("EndDate")>=new Date?futureAndCurrentTimeboxes.push(timeboxRecords):previousTimeboxes.push(timeboxRecords)}),futureAndCurrentTimeboxes=Rally.util.Array.firstElementsOf(futureAndCurrentTimeboxes,this.numColumns);var possiblyVisibleTimeboxes=previousTimeboxes.concat(futureAndCurrentTimeboxes);return Rally.util.Array.lastElementsOf(possiblyVisibleTimeboxes,this.numColumns)},_initBoard:function(){this._onTimeboxesLoad(this.store)},_onTimeboxesLoad:function(store){var likeTimeboxesObj={};store.each(function(timebox){var timeboxKey=Ext.String.format("{0}{1}{2}",timebox.get("Name"),timebox.get("StartDate"),timebox.get("EndDate"));likeTimeboxesObj[timeboxKey]=Ext.Array.push(likeTimeboxesObj[timeboxKey]||[],timebox)});var sortedLikeTimeboxes=Ext.Array.sort(Ext.Object.getValues(likeTimeboxesObj),function(likeTimeboxes1,likeTimeboxes2){return likeTimeboxes1[0].get("EndDate")-likeTimeboxes2[0].get("EndDate")});this.timeboxes=Ext.Array.filter(sortedLikeTimeboxes,function(likeTimeboxes){return Ext.Array.some(likeTimeboxes,function(timebox){return Rally.util.Ref.getRelativeUri(timebox.get("Project"))===Rally.util.Ref.getRelativeUri(Rally.environment.getContext().getProject())},this)},this);var initiallyVisibleTimeboxes=this._getInitiallyVisibleTimeboxes();this.columns=this._getColumnConfigs(initiallyVisibleTimeboxes),this.columnConfig={xtype:"iterationplanningboardappplanningcolumn",additionalFetchFields:["PortfolioItem"],storeConfig:{fetch:["Parent","Requirement","Iteration"]},dropControllerConfig:{ptype:"planningcolumndropcontroller"}},this.cardConfig={editable:!0,showIconMenus:!0,fields:["Parent","Tasks","Defects","Discussion","PlanEstimate"]},this.scrollableColumnRecords=this.timeboxes,this.setLoading(!1)},_getColumnConfigs:function(timeboxes){var columns=[];return Ext.Array.each(timeboxes,function(timeboxRecords){columns.push({timeboxRecords:timeboxRecords,columnHeaderConfig:{record:timeboxRecords[0],fieldToDisplay:"Name",editable:!1}})},this),columns}})})();
+                Ext.define("TreesWithCardsItem",{extend:"Rally.ui.tree.TreeItem",xtype:"treeswithcardsitem",listeners:{}}),Ext.define("TreesWithCards",{extend:"Rally.ui.tree.Tree",getTreeItemConfigForRecordFn:function(){return function(){}},treeItemConfigForRecordFn:function(record){var card=Ext.create("Rally.ui.cardboard.Card",{record:record});return{xtype:"treeswithcardsitem",canDrag:!0,expanded:!0,record:record,card:card}}}),Ext.define("PlanPlanPalatable",{extend:"Rally.app.App",componentCls:"app",layout:"hbox",items:[{itemId:"accContainer",layout:"accordion",defaults:{bodyPadding:10},height:"100%",items:[{title:"Story Hierarchy",itemId:"storyHierarchyPanel",resizable:!0,autoScroll:!0,height:"100%"},{title:"Orphaned Stories",itemId:"orphanStories",resizable:!0,autoScroll:!0},{title:"Defects",itemId:"defects",resizable:!0,autoScroll:!0}],flex:1},{xtype:"container",cls:"rightSide",itemId:"rightSide",flex:1,height:"100%",autoScroll:!0}],launch:function(){this.buildStoryTree(),this.buildOrphanedStoryTree(),this.buildDefectTree(),this.buildIterationsAndReleases()},buildStoryTree:function(){var storyTree=Ext.create("PlanIterationsAndReleases.StoryTree");this.down("#storyHierarchyPanel").add(storyTree)},buildOrphanedStoryTree:function(){var parentFilter=Ext.create("Rally.data.QueryFilter",{property:"Feature",value:"null",operator:"="}),stateFilter=Ext.create("Rally.data.QueryFilter",{property:"ScheduleState",value:"Accepted",operator:"!="}),iterationFilter=Ext.create("Rally.data.QueryFilter",{property:"Iteration",value:"null",operator:"="}),filter=parentFilter.and(stateFilter).and(iterationFilter),orphanStoryTree=Ext.create("TreesWithCards",{enableDragAndDrop:!0,dragDropGroupFn:function(record){return"cardboard"},dragThisGroupOnMeFn:function(record){return"cardboard"},topLevelStoreConfig:{model:"User Story",fetch:["FormattedID","Name","ObjectID","DirectChildrenCount","ScheduleState","Workspace","Iteration","TaskStatus","WorkProduct","Project","Parent"],filters:filter,canDrag:!0,sorters:[{property:"Rank",direction:"asc"}],listeners:{load:function(store,records,successful,options){store.totalCount>200&&Rally.ui.notify.Notifier.showError({message:"There are more than 200 orphaned stories."})}}}});this.down("#orphanStories").add(orphanStoryTree)},buildDefectTree:function(){var defectTree=Ext.create("Rally.ui.tree.Tree",{enableDragAndDrop:!0,topLevelStoreConfig:{model:"Defect",filters:[{property:"ScheduleState",value:"Accepted",operator:"!="},{property:"Iteration",value:"null",operator:"="}],sorters:[{property:"Rank",direction:"asc"}],listeners:{load:function(store,records,successful,options){store.totalCount>200&&Rally.ui.notify.Notifier.showError({message:"There are more than 200 defects."})}}}});this.down("#defects").add(defectTree)},buildIterationsAndReleases:function(){this._getBoardData()},_getBoardData:function(){Rally.data.ModelFactory.getModel({type:"Iteration",success:this._onModelSuccess,scope:this})},_onModelSuccess:function(model){this.model=model,Ext.create("Rally.data.WsapiDataStore",{model:model,fetch:["Name","StartDate","EndDate","Project","PlannedVelocity"],autoLoad:!0,listeners:{load:this._onIterationsLoad,scope:this},limit:1/0})},_onIterationsLoad:function(store){var cardBoardConfig=this.buildIterationCardboardConfig(store);this.down("#rightSide").add(cardBoardConfig)},buildIterationCardboardConfig:function(store){return{types:["User Story","Defect"],xtype:"iterationcardboard",store:store,ddGroup:"cardboard",dragThisGroupOnMeFn:function(record){return"cardboard"}}}});
 
             Rally.launchApp('PlanPlanPalatable', {
                 name:"Son of PlanPlanPalatable",
@@ -67,6 +72,181 @@ h1 {
     top: 5px;
     right: 3px;
 }
+    </style>
+    <style type="text/css">
+        .planning-board .header {
+    padding: 5px 5px 5px 10px;
+}
+
+.planning-board .cardboard {
+    margin: 0 14px 0 10px;
+}
+
+.planning-board .header .add-new {
+    float: left;
+}
+
+.planning-board .show-label {
+    float: right;
+    margin-top: 3px;
+}
+
+.planning-board .type-checkbox {
+    float: right;
+    margin: 5px;
+}
+
+.planning-board .manage-iterations {
+    float: right;
+    margin: 3px 10px 0 0;
+}
+
+.planning-board .artifact-type-chooser {
+    margin-top: 4px;
+}
+
+/*Remove with NO_IE7_COMPAT toggle */
+.ext-ie .planning-board .artifact-type-chooser {
+    width: 190px;
+}
+
+.planning-board .type-checkbox label {
+    position: relative;
+    top: 1px;
+}
+
+.planning-board .add-new label {
+    padding-top: 0;
+}
+
+.planning-board .add-new .new {
+    margin-left: 0;
+}
+
+th.planning-column {
+    background-color: #f5f5f5;
+}
+
+.planning-column .columnTitle {
+    font-size: 18px;
+    font-weight: bold;
+    color: #333333;
+}
+
+.planning-column .timeboxDates {
+    font-size: 12px;
+    font-weight: bold;
+    color: #8f8f8f;
+    margin-bottom: 7px;
+}
+
+.planning-column.current-timebox .rui-card {
+    box-shadow: rgba(192, 192, 192, 0.5) 2px 2px;
+    -moz-box-shadow: rgba(192, 192, 192, 0.5) 2px 2px;
+    -webkit-box-shadow: rgba(192, 192, 192, 0.5) 2px 2px;
+}
+
+.progress-bar-background {
+    background-color: #424242;
+    padding: 6px 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.progress-bar-container {
+    margin: 0 auto;
+}
+
+.progress-bar-container .progress-bar-label {
+    color: #333333;
+    font-size: 12px;
+}
+
+.planning-board .cardboard .column-container .column-header .column-header-title {
+    padding: 15px 0 0 0;
+}
+
+th.card-column.planning-column.current-timebox {
+    background: rgb(245,245,245); /* Old browsers */
+    background: -moz-linear-gradient(top,  rgba(245,245,245,1) 0%, rgba(205,205,205,1) 100%); /* FF3.6+ */
+    background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,rgba(245,245,245,1)), color-stop(100%,rgba(205,205,205,1))); /* Chrome,Safari4+ */
+    background: -webkit-linear-gradient(top,  rgba(245,245,245,1) 0%,rgba(205,205,205,1) 100%); /* Chrome10+,Safari5.1+ */
+    background: -o-linear-gradient(top,  rgba(245,245,245,1) 0%,rgba(205,205,205,1) 100%); /* Opera 11.10+ */
+    background: -ms-linear-gradient(top,  rgba(245,245,245,1) 0%,rgba(205,205,205,1) 100%); /* IE10+ */
+    background: linear-gradient(to bottom,  rgba(245,245,245,1) 0%,rgba(205,205,205,1) 100%); /* W3C */
+    filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#f5f5f5', endColorstr='#cdcdcd',GradientType=0 ); /* IE6-9 */
+}
+
+.cardboard .column-container .planning-column.current-timebox {
+    border-right: 2px solid #8f8f8f;
+    border-top: 2px solid #8f8f8f;
+    border-left: 2px solid #8f8f8f;
+}
+
+.cardboard .column-container td.planning-column.current-timebox {
+    background-color: #D6D6D6;
+    border-top: 1px solid #8f8f8f;
+}
+
+.cardboard .column-container .planning-column {
+    border-top: 2px solid transparent;
+}
+
+.planning-column .column-header {
+    min-height: 70px;
+}
+
+.planning-column.backlog .search {
+    margin: 5px 30px 0 30px;
+    padding-right: 21px;
+}
+
+.planning-column.backlog .search > div {
+    overflow-x: hidden;
+}
+
+.planning-column.backlog .search .search-text {
+    float: left;
+    width: 100%;
+}
+
+.planning-column.backlog .search-button {
+    background: transparent url('search-button.gif');
+    width: 15px;
+    height: 15px;
+    background-size: 15px 15px;
+    background-repeat: no-repeat;
+    cursor: pointer;
+    float: right;
+    margin: 4px -21px 0 6px;
+}
+
+.planning-board .no-timebox .columns tr td.blank-slate-column {
+    width: 66%;
+    text-align: center;
+    vertical-align: top;
+}
+
+.cardboard .planning-column.card-column-status {
+    border: none;
+    border-right: 1px dotted #C6C6C6;
+}
+
+.cardboard .planning-column.card-column-status:last-child {
+    border-right: none
+}
+
+.cardboard .planning-column.current-timebox.card-column-status {
+    background-color: #D6D6D6;
+    border-top: 2px solid #D6d6d6;
+}
+
+.cardboard .planning-column.card-column-status .empty-status {
+    background-color: #424242;
+    height: 26px;
+}
+
     </style>
 </head>
 <body></body>

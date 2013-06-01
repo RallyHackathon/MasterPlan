@@ -1,25 +1,105 @@
-Ext.define('TreesWithCards', {extend: 'Rally.ui.tree.Tree', fields: [
-    {name: 'card', type: 'object', defaultValue: null}],
-    treeItemConfigForRecordFn: function(){
-        return {
+
+
+Ext.define('TreesWithCardsItem', {
+    extend: 'Rally.ui.tree.TreeItem', 
+    xtype: 'treeswithcardsitem',
+    
+    listeners: {
+//        select: function(){
+//            debugger;
+////            this.card = Ext.create('card', {
+////                
+////            });
+//        }
+    }
+});
+
+
+Ext.define('TreesWithCards', {
+    extend: 'Rally.ui.tree.Tree',
+    getTreeItemConfigForRecordFn: function(){
+        return function(){
             xtype: 'treeswithcardsitem'
+        };
+    },
+    makeTreeItemDraggable: function(treeItem){
+        var tree = this;
+
+        if(treeItem.getCanDrag()){
+            var me = this;
+            var dragSource = Ext.create('Ext.dd.DragSource', treeItem.getEl(), {
+                treeItem: treeItem,
+                getDragData: function() {
+                    var ret = {
+                        card: Ext.create('Rally.ui.cardboard.Card', {
+                            record: treeItem.getRecord()    
+                        }),
+                        column: {
+                            findCardInfo: function() {
+                                return { 
+                                    index: -1
+                                };
+                            }
+                        }
+                    };
+                    return ret;
+                },
+                ddGroup: 'cardboard',
+                isTarget: false,
+                proxy: Ext.create('Ext.dd.StatusProxy', {
+                    animRepair: true,
+                    shadow: false,
+                    dropNotAllowed: 'rallytree-proxy'
+                }),
+                beforeDragDrop: function(){
+                    me.fireEvent('drag', treeItem);
+                    return true;
+                },
+                afterDragDrop: function(){
+                    me.fireEvent('drop', treeItem);
+                }
+            });
+
+            dragSource.setHandleElId(treeItem.getEl().down('.drag').id);
+        }
+
+        if(treeItem.getCanDropOnMe()){
+            var dropTarget = Ext.create('Rally.ui.tree.TreeItemDropTarget', treeItem.down('#treeItemContent').getEl(), {
+                tree: tree,
+                treeItem: treeItem
+            });
+
+            if(treeItem.dropTarget){
+                treeItem.dropTarget.unreg();
+            }
+
+            treeItem.dropTarget = dropTarget;
+
+            var dropTargetGroups = this.getDragThisGroupOnMeFn().call(this.getScope(), treeItem.getRecord());
+            if(!Ext.isArray(dropTargetGroups)){
+                dropTargetGroups = [dropTargetGroups];
+            }
+            Ext.each(dropTargetGroups, function(dropTargetGroup){
+                dropTarget.addToGroup(dropTargetGroup);
+            });
+        }
+
+    },
+    treeItemConfigForRecordFn: function(record){
+        var card = Ext.create('Rally.ui.cardboard.Card', {
+            record: record
+        });
+        return {
+            xtype: 'treeswithcardsitem',
+            canDrag: true,
+            expanded: true,
+            record: record,
+            card: card 
         };
     }
 });
 
-Ext.define('TreesWithCardsItem', {
-    extend: 'Rally.ui.tree.TreeItem', 
-    alias: 'widget.treeswithcardsitem',
-    card: {
-        xtype: 'rallycard'
-    },
-    listeners: {
-        afterrender: function(eOpts) {
-            debugger;
-            this.card.setRecord(this.getRecord());
-        }
-    }
-});
+
 
 Ext.define('PlanPlanPalatable', {
     extend: 'Rally.app.App',
@@ -97,7 +177,7 @@ Ext.define('PlanPlanPalatable', {
             value: 'null',
             operator: '='
         });
-
+        
         var filter = parentFilter.and(stateFilter).and(iterationFilter);
 //        var orphanStoryTree = Ext.create('Rally.ui.tree.UserStoryTree', {
 //            topLevelStoreConfig: {
@@ -117,33 +197,13 @@ Ext.define('PlanPlanPalatable', {
 //                }
 //            }
 //        });
+        
+        
         var orphanStoryTree = Ext.create('TreesWithCards', {
-            enableDragAndDrop: true,
-            /**
-             * @cfg {Function}
-             * Required to support drag and drop.
-             * A function that returns the group name that this record is a member of.
-             *
-             * By default, returns the type name of the record, like 'hierarchicalrequirement' for userstories, and 'defect' for defects.
-             * You will want to change this if type is not specific. For example, you may wish to distinguish accepted user stories from in progress stories.
-             * Use in conjunction with the #dragThisGroupOnMeFn config to define DnD rules.
-             */
+            enableDragAndDrop: true,            
             dragDropGroupFn: function(record){
                 return 'cardboard';
-            },
-    
-            /**
-             * @cfg {Function}
-             * Required to support drag and drop.
-             * A function that returns the group name of records that are able to be dropped on the passed in record.
-             *
-             * For example, a tree of user stories would simply return 'hierarchicalrequirement', since
-             * user stories can always be parented to other user stories. A tree of user stories and defects would need to have 'hierarchicalrequirement'
-             * for the TreeItems representing user stories, but return undefined for defects so they can't be dropped on.
-             * @param record the record you need to determine the group for.
-             * @return a string representing the drag drop group that can be dragged onto the Rally.ui.tree.TreeItem represented by the passed in record.
-             */
-            dragThisGroupOnMeFn: function(record){
+            },dragThisGroupOnMeFn: function(record){
                 return 'cardboard';
             },
             topLevelStoreConfig: {
@@ -162,15 +222,20 @@ Ext.define('PlanPlanPalatable', {
                         }
                     }
                 }
-            }
+            }            
         });
         
         this.down('#orphanStories').add(orphanStoryTree);
     },
     
     buildDefectTree: function(){
-        var defectTree = Ext.create('Rally.ui.tree.Tree', {
-            enableDragAndDrop: true,
+        var defectTree = Ext.create('TreesWithCards', {
+            enableDragAndDrop: true,            
+            dragDropGroupFn: function(record){
+                return 'cardboard';
+            },dragThisGroupOnMeFn: function(record){
+                return 'cardboard';
+            },
             topLevelStoreConfig: {
                 model: 'Defect',
                 filters: [
@@ -213,25 +278,72 @@ Ext.define('PlanPlanPalatable', {
 //    },
     
     buildIterationsAndReleases: function(){
-        var cardBoardConfig = {
-            xtype: 'rallycardboard',
+        
+        this._getBoardData();
+//        var cardBoardConfig = this.buildIterationCardboardConfig(model, iterations);
+        
+//        var cardBoardConfig = {
+//            xtype: 'rallycardboard',
+//            types: ['User Story', 'Defect'],
+//            attribute: "ScheduleState",
+//            draggable: true,
+//            ddGroup: 'cardboard',
+//            dragThisGroupOnMeFn: function(record){
+//                return 'cardboard';
+//            },
+//            listeners: {
+//                'beforeadd': function(component, index, eOpts ) {
+////                    debugger;
+//                }
+//            }
+//        };
+        
+//        this.down('#rightSide').add(cardBoardConfig);
+        
+        //var iterationsAndReleases = Ext.create('PlanIterationsAndReleases.IterationsAndReleases');
+        //this.down('#rightSide').add(iterationsAndReleases);
+    },
+    
+    _getBoardData: function() {
+        Rally.data.ModelFactory.getModel({
+          type: 'Iteration',
+          success: this._onModelSuccess,
+          scope: this
+      });
+    },
+    
+    _onModelSuccess: function(model) {
+        this.model = model;
+        Ext.create('Rally.data.WsapiDataStore', {
+          model: model,
+          fetch: ['Name', 'StartDate', 'EndDate', 'Project', 'PlannedVelocity'],
+          autoLoad: true,
+          listeners: {
+              load: this._onIterationsLoad,
+              scope: this
+          },
+          limit: Infinity
+        });
+    },
+    
+    _onIterationsLoad: function(store) {
+        var cardBoardConfig = this.buildIterationCardboardConfig(store);
+        this.down('#rightSide').add(cardBoardConfig);
+    },
+    
+    buildIterationCardboardConfig: function(store) {
+        return {
             types: ['User Story', 'Defect'],
-            attribute: "ScheduleState",
-            draggable: true,
+            attribute: 'Iteration',
+            xtype: 'iterationcardboard',
+            store: store,
             ddGroup: 'cardboard',
             dragThisGroupOnMeFn: function(record){
                 return 'cardboard';
             },
-            listeners: {
-                'beforeadd': function(component, index, eOpts ) {
-//                    debugger;
-                }
-            }
+            cardboardContainerEl: this.down('#rightSide').getEl()
+            
         };
-        
-        this.down('#rightSide').add(cardBoardConfig);
-        //var iterationsAndReleases = Ext.create('PlanIterationsAndReleases.IterationsAndReleases');
-        //this.down('#rightSide').add(iterationsAndReleases);
     }
 
 });

@@ -2,16 +2,22 @@
    "name": "Son of PlanPlanPalatable",
    "className": "PlanPlanPalatable",
    "server": "https://rally1.rallydev.com",
-   "sdk": "2.0p5",
+   "sdk": "2.0rc1",
    "javascript": [
       "StoryTree.js",
       "StoryTreeItem.js",
       "IterationTreeItem.js",
       "IterationsAndReleases.js",
+      "IterationPlanningBoardColumnProgressBar.js",
+      "PlanningColumnDropController.js",
+      "IterationPlanningBoardColumn.js",
+      "TimeboxScrollable.js",       
+      "IterationCardboard.js",
       "App.js"
    ],
    "css": [
-      "app.css"
+      "app.css",
+      "IterationPlanningBoardApp.css"
    ],
    "parents": [
       "RallyCommunity/PlanPlanPalatable"

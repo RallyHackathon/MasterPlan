@@ -120,7 +120,8 @@ Ext.define('PlanIterationsAndReleases.IterationsAndReleases', {
             },
 
             childModelTypeForRecordFn: function(record){
-                return 'UserStory';
+                //debugger;
+                return 'Artifact';
             },
             parentAttributeForChildRecordFn: function(record){
                 return 'Iteration';
